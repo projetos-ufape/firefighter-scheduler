@@ -1,3 +1,5 @@
+package project_1;
+
 public class WeekControl {
     private  Day[] week = new Day[7];
     private int amount = 0;

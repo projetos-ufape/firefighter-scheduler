@@ -1,3 +1,5 @@
+package project_1;
+
 import java.util.ArrayList;
 
 public class Resolution {
@@ -36,7 +38,7 @@ public class Resolution {
                   for (Person person : people) {
                       while ((i == 0 || i == 1) && schedule.week[i][j] == null && !person.isFireOk()) {
                           if (i == 0) {
-                              if (schedule.week[3][j] == person || schedule.week[5][j]) {
+                              if (schedule.week[3][j] == person || schedule.week[5][j] == person) {
 
                               }
                           }
