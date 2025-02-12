@@ -12,88 +12,111 @@ public class Agenda {
 
     public Agenda(ArrayList<FireFighter> fireFighters) {
         this.fireFighters = fireFighters;
-
         this.agenda = new HashMap<>();
         for (Task task : TASKS) {
-            agenda.put(task, new LinkedHashMap<>());
-
+            Map<String, FireFighter[]> dayMap = new LinkedHashMap<>();
             for (String day : DAYS) {
-                agenda.get(task).put(day, new ArrayList<>().toArray(new FireFighter[2]));
+                dayMap.put(day, new FireFighter[2]);
             }
+            agenda.put(task, dayMap);
         }
     }
 
-    public boolean allocateFirefighters(int dayIdx) {
-        if (dayIdx == DAYS.length) {
-            return true; // All allocated days
-        }
-
-        String currentDay = DAYS[dayIdx];
-        FireFighter[] a = new FireFighter[TASKS.length*2];
-        for (int i = 0; i < TASKS.length*2; i++) {
-            a[i] = (null);
-        }
-
-        return allocateToDay(dayIdx, currentDay, 0, a, 0);
+    /**
+     * Inicia a alocação, percorrendo as tarefas (tasks) e, para cada tarefa,
+     * aloca os bombeiros para todos os dias.
+     *
+     * @return true se a alocação for completa, false caso contrário.
+     */
+    public boolean allocateFirefighters() {
+        return allocateTasks(0, 0);
     }
 
-    private boolean allocateToDay(int dayIdx, String day, int taskIdx, FireFighter[] fireFightersDay, int taskFireFighterIdx) {
+    /**
+     * Método recursivo que percorre as tarefas e os dias.
+     *
+     * @param taskIdx índice da tarefa atual.
+     * @param dayIdx  índice do dia atual para a tarefa.
+     * @return true se conseguir alocar para todas as tarefas e todos os dias; false, caso contrário.
+     */
+    private boolean allocateTasks(int taskIdx, int dayIdx) {
+        // Se todas as tarefas foram processadas, a alocação está completa.
         if (taskIdx == TASKS.length) {
-            return this.allocateFirefighters(dayIdx + 1); // All allocated tasks
+            return true;
+        }
+        // Se concluímos todos os dias para a tarefa atual, avançamos para a próxima tarefa.
+        if (dayIdx == DAYS.length) {
+            return allocateTasks(taskIdx + 1, 0);
         }
 
         Task currentTask = TASKS[taskIdx];
+        String currentDay = DAYS[dayIdx];
 
-        for (FireFighter f1 : fireFighters) {
-            if (this.canAllocateMorning(fireFightersDay, f1, currentTask)) {
-                this.agenda.get(currentTask).get(day)[0] = f1;
-                f1.allocate(currentTask);
-                fireFightersDay[taskFireFighterIdx++] = f1;
 
-                for (FireFighter f2 : fireFighters) {
-                    if (this.canAllocateAfternoon(fireFightersDay, f2, currentTask)) {
-
-                        this.agenda.get(currentTask).get(day)[1] = f2;
-                        f2.allocate(currentTask);
-                        fireFightersDay[taskFireFighterIdx++] = f2;
-
-                        if (this.allocateToDay(dayIdx, day, taskIdx + 1, fireFightersDay, taskFireFighterIdx)) {
-                            return true;
-                        }
-
-                        this.agenda.get(currentTask).get(day)[1] = null;
-                        f2.deallocate(currentTask);
-                        fireFightersDay[--taskFireFighterIdx] = null;
-                    }
-
-                }
-                this.agenda.get(currentTask).get(day)[0] = null;
-                f1.deallocate(currentTask);
-                fireFightersDay[--taskFireFighterIdx] = null;
-
+        for (FireFighter morningCandidate : fireFighters) {
+            if (!morningCandidate.canBeAllocated(currentTask)) {
+                continue;
             }
 
+            if (isAssignedInDayShift(morningCandidate, currentDay, 0)) {
+                continue;
+            }
+
+            agenda.get(currentTask).get(currentDay)[0] = morningCandidate;
+            morningCandidate.allocate(currentTask);
+
+
+            for (FireFighter afternoonCandidate : fireFighters) {
+                if (!afternoonCandidate.canBeAllocated(currentTask)) {
+                    continue;
+                }
+
+                if (afternoonCandidate.getName().equals(morningCandidate.getName())) {
+                    continue;
+                }
+
+                if (isAssignedInDayShift(afternoonCandidate, currentDay, 1)) {
+                    continue;
+                }
+
+
+                agenda.get(currentTask).get(currentDay)[1] = afternoonCandidate;
+                afternoonCandidate.allocate(currentTask);
+
+
+                if (allocateTasks(taskIdx, dayIdx + 1)) {
+                    return true;
+                }
+
+                agenda.get(currentTask).get(currentDay)[1] = null;
+                afternoonCandidate.deallocate(currentTask);
+            }
+
+            agenda.get(currentTask).get(currentDay)[0] = null;
+            morningCandidate.deallocate(currentTask);
         }
-
-        return false; // couldn't allocate
+        return false;
     }
 
-    private boolean canAllocateMorning(FireFighter[] fireFightersDay, FireFighter f, Task currentTask) {
-        return f.canBeAllocated(currentTask)
-                && (fireFightersDay[0] == null || !fireFightersDay[0].getName().equals(f.getName()))
-                && (fireFightersDay[2] == null || !fireFightersDay[2].getName().equals(f.getName()))
-                && (fireFightersDay[4] == null || !fireFightersDay[4].getName().equals(f.getName()));
-    }
-
-    private boolean canAllocateAfternoon(FireFighter[] fireFightersDay, FireFighter f, Task currentTask) {
-        return f.canBeAllocated(currentTask)
-                && (fireFightersDay[1] == null || !fireFightersDay[1].getName().equals(f.getName()))
-                && (fireFightersDay[3] == null || !fireFightersDay[3].getName().equals(f.getName()))
-                && (fireFightersDay[5] == null || !fireFightersDay[5].getName().equals(f.getName()));
+    /**
+     * Verifica se um bombeiro já foi alocado em algum task no mesmo dia e turno.
+     *
+     * @param candidate O bombeiro candidato.
+     * @param day       O dia em questão.
+     * @param shift     O turno (0 para manhã, 1 para tarde).
+     * @return true se o candidato já foi escalado no turno para o dia; false caso contrário.
+     */
+    private boolean isAssignedInDayShift(FireFighter candidate, String day, int shift) {
+        for (Task task : TASKS) {
+            FireFighter assigned = agenda.get(task).get(day)[shift];
+            if (assigned != null && assigned.getName().equals(candidate.getName())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public Map<Task, Map<String, FireFighter[]>> getAgenda() {
-        return this.agenda;
+        return agenda;
     }
-
 }

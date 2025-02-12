@@ -50,7 +50,7 @@ public class Main {
         }
 
         Agenda agenda = new Agenda(fireFighters);
-        boolean valid = agenda.allocateFirefighters(0);
+        boolean valid = agenda.allocateFirefighters();
 
         if (valid) {
             FileService.writeFile(
