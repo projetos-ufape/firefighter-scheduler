@@ -1,5 +1,7 @@
 import java.io.File;
 import java.util.ArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class Main {
     public static void main(String[] args) {
@@ -23,25 +25,45 @@ public class Main {
             return;
         }
 
+        // Criando um pool de threads para processar os arquivos em paralelo
+        int numThreads = Math.min(arquivos.length, Runtime.getRuntime().availableProcessors());
+        ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+
         for (File arquivo : arquivos) {
-            ArrayList<FireFighter> fireFighters = FileService.readFile(pastaEntrada + "/" + arquivo.getName());
+            executor.execute(() -> processarArquivo(arquivo, pastaEntrada, pastaSaida));
+        }
+
+        // Finaliza o executor após as tarefas terminarem
+        executor.shutdown();
+    }
+
+    private static void processarArquivo(File arquivo, String pastaEntrada, String pastaSaida) {
+        ArrayList<FireFighter> fireFighters = FileService.readFile(pastaEntrada + "/" + arquivo.getName());
+
+        synchronized (System.out) {
+            System.out.println("\n----------------------------");
+            System.out.println("Processing file: " + arquivo.getName());
+            System.out.println("----------------------------");
             for (FireFighter f : fireFighters) {
                 System.out.println(f.toString());
             }
+        }
 
-            System.out.println("\nAllocating Fire Fighters...");
-            Agenda agenda = new Agenda(fireFighters);
-            boolean valid = agenda.allocateFirefighters(0);
+        Agenda agenda = new Agenda(fireFighters);
+        boolean valid = agenda.allocateFirefighters(0);
 
-//            if (valid) {
-                FileService.writeFile(
+        if (valid) {
+            FileService.writeFile(
                     pastaSaida + "/saida_" + arquivo.getName().replace("entrada_", ""),
                     agenda.getAgenda()
-                );
-                System.out.println("Successfully allocated Fire Fighters!");
-//            } else {
-//                System.out.println("Failed to allocate Fire Fighters!");
-//            }
+            );
+            synchronized (System.out) {
+                System.out.println("✅ Successfully allocated Fire Fighters for: " + arquivo.getName());
+            }
+        } else {
+            synchronized (System.out) {
+                System.out.println("❌ Failed to allocate Fire Fighters for: " + arquivo.getName());
+            }
         }
     }
 }
